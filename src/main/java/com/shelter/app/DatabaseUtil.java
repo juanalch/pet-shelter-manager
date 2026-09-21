@@ -1,8 +1,8 @@
 package com.shelter.app;
 
+import org.springframework.security.crypto.bcrypt.BCrypt;
+
 import java.io.File;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -32,7 +32,7 @@ public class DatabaseUtil {
 
             if (isNew) {
                 st.execute("INSERT INTO volunteers (username, password_hash) VALUES " +
-                        "('ana', '" + md5("perritos2024") + "')");
+                        "('ana', '" + hashPassword("perritos2024") + "')"); // [FIX VULN-4]
                 st.execute("INSERT INTO pets (name, species, notes) VALUES " +
                         "('Firulais','Perro','Vacunado, muy jugueton')," +
                         "('Michi','Gato','Timido, en observacion')," +
@@ -44,20 +44,19 @@ public class DatabaseUtil {
     }
 
     /**
-     * [VULN-4] CWE-327 / CWE-916: Use of a Broken or Risky Cryptographic
-     * Algorithm. MD5 es rápido y sin salt -> trivialmente crackeable por
-     * fuerza bruta / rainbow tables. Debería usarse BCrypt/Argon2 con salt
-     * (p.ej. Spring Security's BCryptPasswordEncoder).
+     * [FIX VULN-4] CWE-327 / CWE-916 — corregido en Ronda 1.
+     * Antes se usaba MD5 (rápido, sin sal, crackeable por fuerza bruta o
+     * rainbow tables). Ahora se usa BCrypt: cada llamada a hashPassword()
+     * genera una sal aleatoria distinta (BCrypt.gensalt()) y produce un
+     * hash lento por diseño, lo que hace impráctico el crackeo masivo
+     * incluso si la base de datos se filtra (p. ej. vía una SQLi como la
+     * de VULN-1, ya corregida también en esta ronda).
      */
-    public static String md5(String input) {                                    // [VULN-4]
-        try {
-            MessageDigest md = MessageDigest.getInstance("MD5");                 // [VULN-4]
-            byte[] digest = md.digest(input.getBytes());
-            StringBuilder sb = new StringBuilder();
-            for (byte b : digest) sb.append(String.format("%02x", b));
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
+    public static String hashPassword(String plainPassword) {                    // [FIX VULN-4]
+        return BCrypt.hashpw(plainPassword, BCrypt.gensalt());
+    }
+
+    public static boolean checkPassword(String plainPassword, String storedHash) { // [FIX VULN-4]
+        return BCrypt.checkpw(plainPassword, storedHash);
     }
 }

