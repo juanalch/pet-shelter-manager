@@ -1,0 +1,6 @@
+target/
+*.class
+shelter.db
+.idea/
+*.iml
+.vscode/

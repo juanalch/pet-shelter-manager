@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Buscar mascotas</title></head>
+<body>
+    <h1>Buscar mascotas 🐶🐱</h1>
+    <form method="GET" action="/search">
+        <input type="text" name="q" th:value="${query}" placeholder="Nombre de la mascota">
+        <button type="submit">Buscar</button>
+    </form>
+
+    <table border="1">
+        <tr><th>ID</th><th>Nombre</th><th>Especie</th><th>Notas</th></tr>
+        <tr th:each="r : ${results}">
+            <td th:text="${r[0]}"></td>
+            <td th:text="${r[1]}"></td>
+            <td th:text="${r[2]}"></td>
+            <td th:text="${r[3]}"></td>
+        </tr>
+    </table>
+
+    <p><a href="/download?file=firulais.jpg">Descargar foto de ejemplo</a></p>
+</body>
+</html>

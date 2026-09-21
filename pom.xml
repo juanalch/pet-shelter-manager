@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.shelter</groupId>
+    <artifactId>pet-shelter-manager</artifactId>
+    <version>0.1.0</version>
+    <packaging>jar</packaging>
+
+    <!--
+        ⚠️ PROYECTO ACADEMICO - LABORATORIO DEVSECOPS / SAST
+        Este pom.xml fija a propósito versiones antiguas con CVEs
+        públicos conocidos, para que el SAST de dependencias
+        (Snyk / OWASP Dependency-Check / SonarCloud) las marque.
+        Ver [VULN-6] en el reporte.
+    -->
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <!-- [VULN-6] CWE-1104/937: versión vieja de Spring Boot, con
+             CVEs conocidos en su cadena de dependencias (Jackson,
+             Tomcat embebido, etc.) -->
+        <version>2.1.6.RELEASE</version>
+        <relativePath/>
+    </parent>
+
+    <properties>
+        <java.version>1.8</java.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.34.0</version>
+        </dependency>
+
+        <!-- [VULN-6] CWE-1104: Jackson Databind con CVEs públicos
+             conocidos (deserialización insegura) en versiones < 2.9.9 -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.9.8</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Login - Pet Shelter</title></head>
+<body>
+    <h1>Ingreso de voluntarios</h1>
+    <p style="color:red" th:if="${error}" th:text="${error}"></p>
+    <form method="POST" action="/login">
+        <input type="text" name="username" placeholder="Usuario"><br>
+        <input type="password" name="password" placeholder="Contraseña"><br>
+        <button type="submit">Ingresar</button>
+    </form>
+</body>
+</html>
