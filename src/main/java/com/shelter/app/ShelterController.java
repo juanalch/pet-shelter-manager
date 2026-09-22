@@ -1,5 +1,7 @@
 package com.shelter.app;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -9,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.HtmlUtils;
 
 import javax.servlet.http.HttpSession;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -30,6 +33,8 @@ public class ShelterController {
     }
 
     private static final String UPLOAD_DIR = "uploads/";
+    private static final String VIEW_LOGIN = "login";
+    private static final Logger LOG = LoggerFactory.getLogger(ShelterController.class);
 
     @GetMapping("/")
     public String home() {
@@ -41,7 +46,7 @@ public class ShelterController {
     // -------------------------------------------------------------------
     @GetMapping("/login")
     public String loginForm(Model model) {
-        return "login";
+        return VIEW_LOGIN;
     }
 
     @PostMapping("/login")
@@ -50,8 +55,8 @@ public class ShelterController {
                          HttpSession session,
                          Model model) {
 
-        if (shelterConfig.ADMIN_USERNAME.equals(username)
-                && shelterConfig.ADMIN_PASSWORD.equals(password)) {
+        if (shelterConfig.getAdminUsername().equals(username)
+                && shelterConfig.getAdminPassword().equals(password)) {
             session.setAttribute("user", "admin");
             return "redirect:/dashboard";
         }
@@ -67,11 +72,11 @@ public class ShelterController {
             }
         } catch (SQLException e) {
             model.addAttribute("error", "Error interno");
-            return "login";
+            return VIEW_LOGIN;
         }
 
         model.addAttribute("error", "Credenciales invalidas");
-        return "login";
+        return VIEW_LOGIN;
     }
 
     @GetMapping("/dashboard")
@@ -114,7 +119,7 @@ public class ShelterController {
         } catch (SQLException e) {
             // ya no se ignora en silencio: se registra para diagnóstico,
             // sin exponer el stacktrace al usuario final
-            System.err.println("Error en /search: " + e.getMessage());
+            LOG.error("Error en /search", e);
         }
 
         model.addAttribute("results", results);
@@ -129,7 +134,7 @@ public class ShelterController {
     @PostMapping("/generate-report")
     @ResponseBody
     public ResponseEntity<String> generateReport(@RequestParam String petName,
-                                                  HttpSession session) throws Exception {
+                                                  HttpSession session) throws IOException {
         if (session.getAttribute("user") == null) {                              // [FIX] CWE-306
             return ResponseEntity.status(401).body("No autenticado");
         }

@@ -10,6 +10,10 @@ import java.sql.Statement;
 
 public class DatabaseUtil {
 
+    private DatabaseUtil() {
+        throw new IllegalStateException("Clase de utilidad, no instanciar");
+    }
+
     private static final String DB_PATH = "shelter.db";
     private static final String DB_URL = "jdbc:sqlite:" + DB_PATH;
 
