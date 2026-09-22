@@ -5,3 +5,4 @@ shelter.db
 *.iml
 .vscode/
 uploads/
+.env

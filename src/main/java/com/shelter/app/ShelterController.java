@@ -1,5 +1,6 @@
 package com.shelter.app;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,9 @@ public class ShelterController {
 
     static { DatabaseUtil.initDb(); }
 
+    @Autowired
+    private ShelterConfig shelterConfig;
+
     private static final String UPLOAD_DIR = "uploads/";
 
     @GetMapping("/")
@@ -44,8 +48,8 @@ public class ShelterController {
                          HttpSession session,
                          Model model) {
 
-        if (ShelterConfig.ADMIN_USERNAME.equals(username)
-                && ShelterConfig.ADMIN_PASSWORD.equals(password)) {
+        if (shelterConfig.ADMIN_USERNAME.equals(username)
+                && shelterConfig.ADMIN_PASSWORD.equals(password)) {
             session.setAttribute("user", "admin");
             return "redirect:/dashboard";
         }
@@ -122,12 +126,17 @@ public class ShelterController {
     // -------------------------------------------------------------------
     @PostMapping("/generate-report")
     @ResponseBody
-    public String generateReport(@RequestParam String petName) throws Exception {
+    public ResponseEntity<String> generateReport(@RequestParam String petName,
+                                                  HttpSession session) throws Exception {
+        if (session.getAttribute("user") == null) {                              // [FIX] CWE-306
+            return ResponseEntity.status(401).body("No autenticado");
+        }
+
         Path reportsDir = Paths.get(UPLOAD_DIR, "reports");
         Files.createDirectories(reportsDir);
         Path report = reportsDir.resolve("report_" + UUID.randomUUID() + ".txt");
         Files.write(report, ("Reporte veterinario de " + petName).getBytes(StandardCharsets.UTF_8));
-        return "Reporte generado para " + HtmlUtils.htmlEscape(petName);
+        return ResponseEntity.ok("Reporte generado para " + HtmlUtils.htmlEscape(petName));
     }
 
     // -------------------------------------------------------------------

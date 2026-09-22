@@ -1,5 +1,7 @@
 package com.shelter.app;
 
+import org.springframework.stereotype.Component;
+
 /**
  * [VULN-3] CWE-798: Use of Hard-coded Credentials
  * Contraseña de administrador y API key de un servicio externo
@@ -8,6 +10,7 @@ package com.shelter.app;
  * decompile) obtiene ambas credenciales. Un SAST (Snyk, SonarCloud,
  * gitleaks, trufflehog) lo detecta como "hardcoded secret".
  */
+@Component
 public class ShelterConfig {
 
     public static final String ADMIN_USERNAME = "admin";

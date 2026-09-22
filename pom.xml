@@ -10,20 +10,21 @@
     <packaging>jar</packaging>
 
     <!--
-        ⚠️ PROYECTO ACADEMICO - LABORATORIO DEVSECOPS / SAST
-        Este pom.xml fija a propósito versiones antiguas con CVEs
-        públicos conocidos, para que el SAST de dependencias
-        (Snyk / OWASP Dependency-Check / SonarCloud) las marque.
-        Ver [VULN-6] en el reporte.
+        [FIX VULN-6] CWE-1104/937 — corregido en Ronda 2.
+        Antes: spring-boot-starter-parent 2.1.6.RELEASE (2018) y
+        jackson-databind 2.9.8 fijados a propósito, con CVEs públicos
+        conocidos en su cadena de dependencias.
+        Ahora: se actualiza al último release estable de la línea 2.7.x
+        (última rama de Spring Boot 2 con soporte de código abierto) y
+        se elimina el override manual de jackson-databind: la versión
+        queda gestionada por el BOM de Spring Boot, que ya trae una
+        versión sin los CVEs conocidos de la 2.9.8.
     -->
 
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <!-- [VULN-6] CWE-1104/937: versión vieja de Spring Boot, con
-             CVEs conocidos en su cadena de dependencias (Jackson,
-             Tomcat embebido, etc.) -->
-        <version>2.1.6.RELEASE</version>
+        <version>2.7.18</version>                                              <!-- [FIX VULN-6] -->
         <relativePath/>
     </parent>
 
@@ -46,22 +47,19 @@
             <version>3.34.0</version>
         </dependency>
 
-        <!-- [VULN-6] CWE-1104: Jackson Databind con CVEs públicos
-             conocidos (deserialización insegura) en versiones < 2.9.9 -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>2.9.8</version>
-        </dependency>
+        <!-- [FIX VULN-6] jackson-databind ya no se fija a mano: al quitar
+             el override, Maven usa la versión que gestiona el BOM de
+             spring-boot-starter-parent 2.7.18, sin los CVEs conocidos de
+             la 2.9.8. -->
 
         <!-- [FIX VULN-4] Ronda 1: solo el módulo de criptografía de Spring
              Security (BCrypt), no el starter completo — así no se agregan
              filtros de autenticación/CSRF que cambiarían el comportamiento
-             del resto de la app fuera del alcance de esta ronda. -->
+             del resto de la app fuera del alcance de esta ronda. Sin
+             <version>: la gestiona el BOM de Spring Boot 2.7.18. -->
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
-            <version>5.1.5.RELEASE</version>
         </dependency>
     </dependencies>
 
