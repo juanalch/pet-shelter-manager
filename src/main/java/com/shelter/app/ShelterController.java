@@ -1,6 +1,5 @@
 package com.shelter.app;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -24,8 +23,11 @@ public class ShelterController {
 
     static { DatabaseUtil.initDb(); }
 
-    @Autowired
-    private ShelterConfig shelterConfig;
+    private final ShelterConfig shelterConfig;
+
+    public ShelterController(ShelterConfig shelterConfig) {
+        this.shelterConfig = shelterConfig;
+    }
 
     private static final String UPLOAD_DIR = "uploads/";
 
